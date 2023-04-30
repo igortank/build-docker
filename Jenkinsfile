@@ -7,7 +7,7 @@ pipeline {
     stages {
 		stage('Cloning Git') {
 			steps {
-				git 'https://github.com/igortank/build-docker.git'
+				git url: 'https://github.com/igortank/build-docker.git', branch: 'main'
 				sh 'ls -l'
 			}
 		}
@@ -37,11 +37,11 @@ pipeline {
 		}
 		stage('Test image') {
 			steps{
-				sh "docker run -d -p 8080:8080 --name $BUILD_NUMBER -t $registry:$BUILD_NUMBER"
+				sh "docker run -d -p 8081:8080 --name image-$BUILD_NUMBER -t $registry:$BUILD_NUMBER"
 				sh" sed -i 's/latest/$BUILD_NUMBER/' deploy.yaml"
 				sh "sleep 5"
-				sh 'curl http://localhost:8080'
-				sh "docker kill $BUILD_NUMBER"
+				sh 'curl http://localhost:8081'
+				sh "docker kill image-$BUILD_NUMBER"
 			}
 		}
 		stage('Push Image to repo') {
@@ -60,10 +60,12 @@ pipeline {
 		}
 		stage('Deploy in pre-prod') {
 			steps{
-				sh "kubectl get pods --namespace=pre-prod"
-				sh "kubectl apply -f deploy.yaml --namespace=pre-prod"
-				sleep 4
-				sh "kubectl get pods --namespace=pre-prod"
+			    withKubeConfig([credentialsId: 'kubeconfig']) {
+				    sh "kubectl get pods --namespace=pre-prod"
+				    sh "kubectl apply -f deploy.yaml --namespace=pre-prod"
+				    sleep 4
+				    sh "kubectl get pods --namespace=pre-prod"
+			    }
 			}
 		}
 		stage('Deploy in prod') {
@@ -79,10 +81,12 @@ pipeline {
 						}
 						try{
 							if(depl){
-								sh "kubectl apply -f deploy.yaml --namespace=prod"
-								sleep 4
-								sh "kubectl get pods --namespace=prod"
-								sh "kubectl delete -f deploy.yaml --namespace=pre-prod"
+							    withKubeConfig([credentialsId: 'kubeconfig']) {
+								    sh "kubectl apply -f deploy.yaml --namespace=prod"
+								    sleep 4
+								    sh "kubectl get pods --namespace=prod"
+								    sh "kubectl delete -f deploy.yaml --namespace=pre-prod"
+							    }
 							}
 						}
 						catch(Exception err){
