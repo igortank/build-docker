@@ -1,0 +1,37 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkinstest
+  labels:
+    app: jenkinstest
+spec:
+  ports:
+    - port: 8080
+  selector:
+    app: jenkinstest
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jenkinstest
+  labels:
+    app: jenkinstest
+spec:
+  selector:
+    matchLabels:
+      app: jenkinstest
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: jenkinstest
+    spec:
+      containers:
+        - image: budarkevichigor/build_docker:latest
+          name: jenkinstest
+          env:
+          ports:
+            - containerPort: 8080
+              name: jenkinstest
